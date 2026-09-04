@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lioc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lioc_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lioc_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-lioc_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lioc_user} -d ${POSTGRES_DB:-lioc_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lioc_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-lioc_user}:${POSTGRES_PASSWORD:-lioc_secure_password}@postgres:5432/${POSTGRES_DB:-lioc_db}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DEBUG=${DEBUG:-False}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-lioc-super-secret-jwt-key-for-development-change-in-production}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-lioccalcutta@gmail.com}
+      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - WHATSAPP_NUMBER=${WHATSAPP_NUMBER:-9007381804}
+      - COMPANY_EMAIL=${COMPANY_EMAIL:-lioccalcutta@gmail.com}
+      - COMPANY_PHONE=${COMPANY_PHONE:-+91 90073 81804}
+      - COMPANY_SECONDARY_PHONE=${COMPANY_SECONDARY_PHONE:-+91 80134 51653}
+      - COMPANY_ADDRESS=${COMPANY_ADDRESS:-156, PGH Shah Road, Jadavpur, Kolkata - 700032, West Bengal, India}
+      - NOTIFICATION_EMAIL=${NOTIFICATION_EMAIL:-lioccalcutta@gmail.com}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-lioccalcutta@gmail.com}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY:-1x0000000000000000000000000000000AA}
+      - TURNSTILE_ENABLED=${TURNSTILE_ENABLED:-True}
+      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lioc_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+      - NEXT_PUBLIC_WHATSAPP_NUMBER=${NEXT_PUBLIC_WHATSAPP_NUMBER:-9007381804}
+      - NEXT_PUBLIC_COMPANY_EMAIL=${NEXT_PUBLIC_COMPANY_EMAIL:-lioccalcutta@gmail.com}
+      - NEXT_PUBLIC_COMPANY_PHONE=${NEXT_PUBLIC_COMPANY_PHONE:-+91 90073 81804}
+      - NEXT_PUBLIC_COMPANY_SECONDARY_PHONE=${NEXT_PUBLIC_COMPANY_SECONDARY_PHONE:-+91 80134 51653}
+      - NEXT_PUBLIC_COMPANY_ADDRESS=${NEXT_PUBLIC_COMPANY_ADDRESS:-156, PGH Shah Road, Jadavpur, Kolkata - 700032, West Bengal, India}
+      - NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-1x00000000000000000000AA}
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
